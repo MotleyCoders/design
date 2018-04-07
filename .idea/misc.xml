@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Behat">
+    <behat_settings>
+      <BehatSettings />
+    </behat_settings>
+  </component>
+  <component name="JavaScriptSettings">
+    <option name="languageLevel" value="ES6" />
+  </component>
+  <component name="SvnConfiguration">
+    <configuration>C:\Users\Clint\AppData\Roaming\Subversion</configuration>
+    <option name="runUnderTerminal" value="true" />
+    <option name="sshConnectionType" value="PRIVATE_KEY" />
+    <option name="sshExecutablePath" value="vsh" />
+    <option name="sshPrivateKeyPath" value="c:\sync\ssh\cpriest\cpriest1-rsa" />
+  </component>
+  <component name="UpsourceProjectSettings">
+    <option name="disableSslValidation" value="true" />
+    <option name="upsourceUrl" value="https://upsource.resultsgeneration.com" />
+  </component>
+  <component name="VagrantProjectSettings">
+    <option name="instanceFolder" value="" />
+    <option name="provider" value="" />
+  </component>
+</project>

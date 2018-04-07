@@ -1,0 +1,24 @@
+{
+  "name": "design",
+  "version": "0.0.1",
+  "description": "Playground for design",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MotleyCoders/design.git"
+  },
+  "author": "Clint Priest of MotleyCoders",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/MotleyCoders/design/issues"
+  },
+  "homepage": "https://github.com/MotleyCoders/design#readme",
+  "dependencies": {
+    "chalk": "^2.3.2",
+    "commander": "^2.15.1",
+    "exectimer": "^2.1.0"
+  }
+}
