@@ -10,6 +10,10 @@ const t	= require('exectimer');
 const ch	= require('chalk');
 const Tick = t.Tick;
 
+// The maximum mismatched characters between matched characters allowed
+// Higher numbers will produce wider results
+const MaxIntraMismatch = 12;
+
 
 const scoreMatch		= 16;
 const scoreGapStart		= -3;
@@ -91,16 +95,16 @@ module.exports = new (class Regex1Algorithm {
 				console.log('\nPattern: %s\n', pattern);
 
 				// Tick.wrap(function fn(done) {
-				let tMatches = this.MatchAll(pattern, MetaData.data);
+				let tMatches = this.MatchAll(pattern, MetaData.Data);
 
 				tMatches
 					.sort((l, r) => l.match.length - r.match.length)
 					.map((tMatch) => this.Score(tMatch, MetaData))
 				;
 
-				console.log(tMatches);
+				// console.log(tMatches);
 
-				console.log('\n\n');
+				// console.log('\n\n');
 				// done();
 			});
 		// });
@@ -129,7 +133,7 @@ module.exports = new (class Regex1Algorithm {
 	 */
 	CreatePattern(Input) {
 		return Array.from(Input)
-			.join('.*?');
+			.join(`.{0,${MaxIntraMismatch}}`);
 	}
 
 	/**
@@ -143,7 +147,7 @@ module.exports = new (class Regex1Algorithm {
 			[match, start, end] = Object.values(tMatch),
 			{ INPUT, Input, input, DATA, Data, data } = MetaData;
 
-		console.log(ch`  Scoring: "{magenta %s}" matching {cyan "%s"} (%d-%d) from "{bold {red %s}{green %s}{red %s}}"`, Input, match, start, end,
+		console.log(ch`  Scoring: "{magentaBright %s}" matched (%d-%d) on "{bold {red %s}{green %s}{red %s}}"`, Input, start, end,
 			start > 0 ? Data[start - 1] : '',
 			Data.substr(start, (end - start)),
 			end < Data.length ? Data[end] : ''
@@ -152,6 +156,7 @@ module.exports = new (class Regex1Algorithm {
 		let Scores = {
 			Boundary: 0,	// Boundary Character Score
 			Consecutive: 0,	// Consecutive Characters Matched
+			SpecialChars: 0, // Number of Uppercase, Numeric or Symbol Input == Data matches
 		};
 
 		// First character of match
@@ -164,9 +169,20 @@ module.exports = new (class Regex1Algorithm {
 			if(Input == 'xxxxtse') {
 				console.log(ch`      match[{yellow.bold %d}] = {yellow.bold %s}, input[{yellow.bold %d}] = {yellow.bold %s}, consecutive = {yellow.bold %d}`, j, match[j], inputAt, Input[inputAt], Scores.Consecutive);
 			}
-			if(match[j] === input[inputAt])  {
+			if(data[start + j] === input[inputAt])  {
 				if(isBoundary(Data[start + j - 1]))
 					Scores.Boundary += 1.0;
+
+				// If our input is a boundary match, double-boundary matach
+				if(isBoundary(Data[start + j]))
+					Scores.Boundary += 2.0;
+
+				// If the Input & Data is a capital/number/symbol
+				if(Input[inputAt] == INPUT[inputAt]  && Input[inputAt] == Data[start + j]) {
+					console.log('    ', j, Input[inputAt], INPUT[inputAt], Data[start + j]);
+					Scores.SpecialChars++;
+				}
+
 
 				if(j != 0 && match[j - 1] === Input[inputAt - 1])
 					Scores.Consecutive++;
@@ -175,7 +191,7 @@ module.exports = new (class Regex1Algorithm {
 		}
 
 		if(inputAt != Input.length) {
-			console.log(ch`    {red inputAt != input.length for {white input} = {green %s}`);
+			console.log(ch`    {red inputAt(%d) != input.length for {white input}} = {green %s}`, inputAt, Input);
 		}
 
 		if(end === Data.length || isBoundary(Data[end]))
@@ -187,6 +203,7 @@ module.exports = new (class Regex1Algorithm {
 		console.log('    Scores:');
 		console.log('      Boundary   : ', Scores.Boundary);
 		console.log('      Consecutive: ', Scores.Consecutive);
+		console.log('      SpecialChars: ', Scores.SpecialChars);
 		console.log('\n');
 	}
 
