@@ -15,7 +15,7 @@ const Tick = t.Tick;
 const MaxIntraMismatch = 12;
 
 
-const scoreMatch		= 16;
+const scoreMatch			= 16;
 const scoreGapStart		= -3;
 const scoreGapExtention = -1;
 
@@ -57,9 +57,9 @@ const NO_BACKTRACK = false;
 const CC_UPPER		= 1;		// Uppercase / Lowercase Flag
 const CC_ALPHA		= 2;		// Alphabetical Character
 const CC_NUM		= 4;		// Number Character
-const CC_ALNUM1		= 6;		// AlphaNumeric NUM + ALPHA = 6 (7 if uppercase)
-const CC_ALNUM2 	= 7;		// AlphaNumeric NUM + ALPHA = 6 (7 if uppercase)
-const CC_BOUNDARY	= 8;
+const CC_ALNUM1	= 6;		// AlphaNumeric NUM + ALPHA = 6 (7 if uppercase)
+const CC_ALNUM2	= 7;		// AlphaNumeric NUM + ALPHA = 6 (7 if uppercase)
+const CC_BOUNDARY = 8;
 
 module.exports = new (class Regex1Algorithm {
 	constructor() {
@@ -80,9 +80,9 @@ module.exports = new (class Regex1Algorithm {
 		 * Going to attempt the same/similar with regex
 		 */
 
-		console.log('\nInput: %s\n\nData:\n%s\n', Input, Data);
-		console.log(0, Data);
-		console.log('\n\n');
+		// console.log('\nInput: %s\n\nData:\n%s\n', Input, Data);
+		// console.log(0, Data);
+		// console.log('\n\n');
 
 		tInputs
 			.forEach((Input) => {
@@ -92,13 +92,17 @@ module.exports = new (class Regex1Algorithm {
 
 				let pattern = this.CreatePattern(Input);
 
-				console.log('\nPattern: %s\n', pattern);
+				console.log('\nPattern: %s', pattern);
 
 				// Tick.wrap(function fn(done) {
 				let tMatches = this.MatchAll(pattern, MetaData.Data);
 
+				console.log(ch`  {yellow %d matches} for "{magenta %s}"\n`, tMatches.length, Input);
+
+				tMatches = tMatches.slice(0, 1);
+
 				tMatches
-					.sort((l, r) => l.match.length - r.match.length)
+					// .sort((l, r) => l.match.length - r.match.length)
 					.map((tMatch) => this.Score(tMatch, MetaData))
 				;
 
@@ -110,11 +114,11 @@ module.exports = new (class Regex1Algorithm {
 		// });
 
 		let tLineEnds = this.MatchAll('[\r\n]+', Data, NO_BACKTRACK);
+		console.log(ch`{bold Total Lines:} %d`, tLineEnds.length);
+		// console.log(tLineEnds);
 
-		console.log(tLineEnds);
-
-		if(t.timers && t.timers.fn)
-			t.timers.fn.printResults();
+		// if(t.timers && t.timers.fn)
+		// 	t.timers.fn.printResults();
 
 		// for(let part of tInputs) {
 		// 	console.log(part);
@@ -132,30 +136,42 @@ module.exports = new (class Regex1Algorithm {
 	 * @returns {string}
 	 */
 	CreatePattern(Input) {
-		return Array.from(Input)
-			.join(`.{0,${MaxIntraMismatch}}`);
+		return '(' + (
+			Array.from(Input)
+				.join(`)(.*?)(`)
+		) + ')';
 	}
 
 	/**
 	 * Scores a given match according to the scoring methodology
 	 *
-	 * @param {fzf.Match} tMatch				The match structure to score
-	 * @param {fzf.MatchMetaData} MetaData		The current input/data state in various formats
+	 * @param {fzf.Match} tMatch                The match structure to score
+	 * @param {fzf.MatchMetaData} MetaData        The current input/data state in various formats
 	 */
 	Score(tMatch, MetaData) {
-		let c, inputAt = 0,
-			[match, start, end] = Object.values(tMatch),
+		let c, inputAt									= 0,
+			[match, start, end]							= Object.values(tMatch),
 			{ INPUT, Input, input, DATA, Data, data } = MetaData;
 
-		console.log(ch`  Scoring: "{magentaBright %s}" matched (%d-%d) on "{bold {red %s}{green %s}{red %s}}"`, Input, start, end,
-			start > 0 ? Data[start - 1] : '',
-			Data.substr(start, (end - start)),
-			end < Data.length ? Data[end] : ''
+		console.log(ch`  Scoring Match: "{red %s}%s{red %s}" (%d-%d)`,
+			['\r','\n', undefined].indexOf(Data[start - 1]) == -1 ? Data[start-1] : '^',
+
+			tMatch.tMatches
+				.slice(1)
+				.map((v, i) =>
+					i % 2 == 0
+					? ch`{green.bold ${v}}`
+					: ch`{gray ${v}}`
+				).join(''),
+			['\r', '\n', undefined].indexOf(Data[end]) == -1 ? Data[end] : '$',
+			start, end,
 		);
 
+		// console.log(tMatch);
+
 		let Scores = {
-			Boundary: 0,	// Boundary Character Score
-			Consecutive: 0,	// Consecutive Characters Matched
+			Boundary:		0,	// Boundary Character Score
+			Consecutive:	0,	// Consecutive Characters Matched
 			SpecialChars: 0, // Number of Uppercase, Numeric or Symbol Input == Data matches
 		};
 
@@ -163,13 +179,13 @@ module.exports = new (class Regex1Algorithm {
 		if(start === 0 || isBoundary(Data[start - 1]))
 			Scores.Boundary += 1.5;		// Starting Boundary Worth More
 
-		for(let j=0, lowerMatch=false; j < match.length; j++) {
-
+		for(let j = 0; j < match.length; j++) {
 			// noinspection JSValidateTypes
 			if(Input == 'xxxxtse') {
-				console.log(ch`      match[{yellow.bold %d}] = {yellow.bold %s}, input[{yellow.bold %d}] = {yellow.bold %s}, consecutive = {yellow.bold %d}`, j, match[j], inputAt, Input[inputAt], Scores.Consecutive);
+				console.log(ch`      match[{yellow.bold %d}] = {yellow.bold %s}, input[{yellow.bold %d}] = {yellow.bold %s}, consecutive = {yellow.bold %d}`, j, match[j], inputAt,
+					Input[inputAt], Scores.Consecutive);
 			}
-			if(data[start + j] === input[inputAt])  {
+			if(data[start + j] === input[inputAt]) {
 				if(isBoundary(Data[start + j - 1]))
 					Scores.Boundary += 1.0;
 
@@ -178,11 +194,10 @@ module.exports = new (class Regex1Algorithm {
 					Scores.Boundary += 2.0;
 
 				// If the Input & Data is a capital/number/symbol
-				if(Input[inputAt] == INPUT[inputAt]  && Input[inputAt] == Data[start + j]) {
+				if(Input[inputAt] == INPUT[inputAt] && Input[inputAt] == Data[start + j]) {
 					console.log('    ', j, Input[inputAt], INPUT[inputAt], Data[start + j]);
 					Scores.SpecialChars++;
 				}
-
 
 				if(j != 0 && match[j - 1] === Input[inputAt - 1])
 					Scores.Consecutive++;
@@ -190,9 +205,9 @@ module.exports = new (class Regex1Algorithm {
 			}
 		}
 
-		if(inputAt != Input.length) {
-			console.log(ch`    {red inputAt(%d) != input.length for {white input}} = {green %s}`, inputAt, Input);
-		}
+		// if(inputAt != Input.length) {
+		// 	console.log(ch`    {red inputAt(%d) != input.length for {white input}} = {green %s}`, inputAt, Input);
+		// }
 
 		if(end === Data.length || isBoundary(Data[end]))
 			Scores.Boundary += 1.5;		// Ending on Boundary Worth More
@@ -212,18 +227,18 @@ module.exports = new (class Regex1Algorithm {
 	 -- We prefer matches at special positions, such as the start of a word, or
 	 uppercase character in camelCase words.
 
-	 	That is, we prefer an occurrence of the pattern with more characters
-	 	matching at special positions, even if the total match length is longer.
+	 That is, we prefer an occurrence of the pattern with more characters
+	 matching at special positions, even if the total match length is longer.
 
-	 	"e.g. "fuzzyfinder" vs. "fuzzy-finder" on "ff"
-	 	                         ````````````
-	 	Also, if the first character in the pattern appears at one of the special
-	 	positions, the bonus point for the position is multiplied by a constant
-	 	as it is extremely likely that the first character in the typed pattern
-	 	has more significance than the rest.
+	 "e.g. "fuzzyfinder" vs. "fuzzy-finder" on "ff"
+	 ````````````
+	 Also, if the first character in the pattern appears at one of the special
+	 positions, the bonus point for the position is multiplied by a constant
+	 as it is extremely likely that the first character in the typed pattern
+	 has more significance than the rest.
 
-	 	"e.g. "fo-bar" vs. "foob-r" on "br"
-	    	   ``````
+	 "e.g. "fo-bar" vs. "foob-r" on "br"
+	 ``````
 	 -- But since fzf is still a fuzzy finder, not an acronym finder, we should also
 	 consider the total length of the matched substring. This is why we have the
 	 gap penalty. The gap penalty increases as the length of the gap (distance
@@ -231,36 +246,36 @@ module.exports = new (class Regex1Algorithm {
 	 eventually cancelled at some point.
 
 	 "e.g. "fuzzyfinder" vs. "fuzzy-blurry-finder" on "ff"
-	        ```````````
+	 ```````````
 
-	 	Consequently, it is crucial to find the right balance between the bonus
-	 	and the gap penalty. The parameters were chosen that the bonus is cancelled
-	 	when the gap size increases beyond 8 characters.
+	 Consequently, it is crucial to find the right balance between the bonus
+	 and the gap penalty. The parameters were chosen that the bonus is cancelled
+	 when the gap size increases beyond 8 characters.
 
-	 	The bonus mechanism can have the undesirable side effect where consecutive
-	 	matches are ranked lower than the ones with gaps.
+	 The bonus mechanism can have the undesirable side effect where consecutive
+	 matches are ranked lower than the ones with gaps.
 
-	 	"e.g. "foobar" vs. "foo-bar" on "foob"
-	                        ```````
+	 "e.g. "foobar" vs. "foo-bar" on "foob"
+	 ```````
 
-	 	To correct this anomaly, we also give extra bonus point to each character
-	 	in a consecutive matching chunk.
+	 To correct this anomaly, we also give extra bonus point to each character
+	 in a consecutive matching chunk.
 
-	 	"e.g. "foobar" vs. "foo-bar" on "foob"
-	 	       ``````
+	 "e.g. "foobar" vs. "foo-bar" on "foob"
+	 ``````
 
-	 	The amount of consecutive bonus is primarily determined by the bonus of the
-	 	first character in the chunk.
+	 The amount of consecutive bonus is primarily determined by the bonus of the
+	 first character in the chunk.
 
-	 	"e.g. "foobar" vs. "out-of-bound" on "oob"
-	 	                    ````````````
- */
+	 "e.g. "foobar" vs. "out-of-bound" on "oob"
+	 ````````````
+	 */
 
 	/**
-	 *	Matches the given ${pattern} against the ${data} repeatedly and returns the matches
+	 *    Matches the given ${pattern} against the ${data} repeatedly and returns the matches
 	 *
-	 * @param {string} pattern		The regular expression pattern to find matches in ${data} for
-	 * @param {string} data			The data which we are matching against
+	 * @param {string} pattern        The regular expression pattern to find matches in ${data} for
+	 * @param {string} data            The data which we are matching against
 	 * @param {boolean} backtrack    Whether we backtrack the lastIndex to the 2nd match character after the last match
 	 *
 	 * @returns {fzf.Match[]}
@@ -268,15 +283,29 @@ module.exports = new (class Regex1Algorithm {
 	MatchAll(pattern, data, backtrack = true) {
 		let tMatches = [];
 
-		let re = new RegExp(pattern, 'gim'), res = null;
-		do {
-			res = re.exec(data);
-			if(res) {
-				tMatches.push({ match: res[0], start: res.index, end: re.lastIndex });
-				if(backtrack)
-					re.lastIndex = res.index + 1;
-			}
-		} while(res !== null);
+		// console.log('\n\n%s\n', pattern);
+
+		// Tick.wrap(function fn(done) {
+			let re = new RegExp(pattern, 'gim'), res = null;
+			do {
+				res = re.exec(data);
+				if(res) {
+					tMatches.push({
+						tMatches: res.filter(k => !(k in ['input', 'index'])),
+						start:    res.index,
+						end:      re.lastIndex
+					});
+					if(backtrack)
+						re.lastIndex = res.index + 1;
+				}
+			} while(res !== null);
+		// });
+		// console.log('Count: %d', tMatches.length);
+		//
+		// console.log(tMatches.slice(0, 2));
+
+		// if(t.timers && t.timers.fn)
+		// 	t.timers.fn.printResults();
 
 		return tMatches;
 	}
