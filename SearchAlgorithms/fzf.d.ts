@@ -4,9 +4,30 @@
 
 export namespace fzf {
 
+	interface MatchClassesCommon {
+		/** Boundary Character Score */
+		Boundary: number;
+
+		/** Consecutive Characters Matched */
+		Consecutive: number;
+
+		/** Number of Uppercase Input matches to Data */
+		Capitals: number;
+	}
+
+	interface MatchClasses extends MatchClassesCommon {
+		/** Count of characters between input matches */
+		GapLength: number;
+	}
+
+	interface MatchScores extends MatchClassesCommon {
+		/** The penalty score for gaps in-between matching characters */
+		GapPenalty: number;
+	}
+
 	interface Match {
-		/** - The full match of the pattern from the input */
-		match: string;
+		/** The full match of the pattern from the input */
+		tParts: string[];
 
 		/** The index into the unaltered data this match begins at */
 		start: number;
@@ -16,6 +37,12 @@ export namespace fzf {
 
 		/** The final score of this match against the data */
 		score: number;
+
+		/** The individual class points calculated for the match */
+		Points: MatchClasses;
+
+		/** The total scores per class calculated for the match */
+		Scores: MatchScores;
 	}
 
 	interface MatchMetaData {

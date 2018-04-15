@@ -6,14 +6,14 @@
  * @see regex_fzf.md
  */
 
+
 const t	= require('exectimer');
 const ch	= require('chalk');
 const Tick = t.Tick;
 
-// The maximum mismatched characters between matched characters allowed
-// Higher numbers will produce wider results
-const MaxIntraMismatch = 12;
-
+// Temporary Usage
+// noinspection JSUnusedLocalSymbols
+let _, __;
 
 const scoreMatch			= 16;
 const scoreGapStart		= -3;
@@ -50,8 +50,19 @@ const bonusConsecutive = -(scoreGapStart + scoreGapExtention);
 const bonusFirstCharMultiplier = 2;
 
 
-// Constant to MatchAll indicating it should not backtrack the lastIndex in MatchAll
-const NO_BACKTRACK = false;
+const ScoreBase     = 16;
+const Scoring       = {};
+Scoring.Boundary    = ScoreBase / 2;
+Scoring.Consecutive = ScoreBase / 4;
+Scoring.Capitals    = ScoreBase;
+Scoring.GapPenalty  = -ScoreBase / 8;
+
+console.log(Scoring);
+
+
+// Flags to MatchAll
+const NO_BACKTRACK		= 1;	// Do not backtrack the lastIndex
+const CASE_SENSITIVE = 2;	// Match case sensitively
 
 // Character Classes
 const CC_UPPER		= 1;		// Uppercase / Lowercase Flag
@@ -90,19 +101,25 @@ module.exports = new (class Regex1Algorithm {
 				MetaData.Input = Input;
 				MetaData.input = Input.toLocaleLowerCase();
 
-				let pattern = this.CreatePattern(Input);
+				let pattern = this.CreatePattern(Input),
+					tMatches;
 
 				console.log('\nPattern: %s', pattern);
 
 				// Tick.wrap(function fn(done) {
-				let tMatches = this.MatchAll(pattern, MetaData.Data);
+
+				// If our input pattern is not all lowercase, match case sensitively
+				if(MetaData.Input !== MetaData.input)
+					tMatches = this.MatchAll(pattern, MetaData.Data, CASE_SENSITIVE);
+				else
+					tMatches = this.MatchAll(pattern, MetaData.data);
 
 				console.log(ch`  {yellow %d matches} for "{magenta %s}"\n`, tMatches.length, Input);
 
-				tMatches = tMatches.slice(0, 1);
+				// tMatches = tMatches.slice(0, 1);
 
 				tMatches
-					// .sort((l, r) => l.match.length - r.match.length)
+				// .sort((l, r) => l.match.length - r.match.length)
 					.map((tMatch) => this.Score(tMatch, MetaData))
 				;
 
@@ -149,76 +166,127 @@ module.exports = new (class Regex1Algorithm {
 	 * @param {fzf.MatchMetaData} MetaData        The current input/data state in various formats
 	 */
 	Score(tMatch, MetaData) {
-		let c, inputAt									= 0,
-			[match, start, end]							= Object.values(tMatch),
-			{ INPUT, Input, input, DATA, Data, data } = MetaData;
+		let at = 0;
+
+		let [tParts, start, end] = Object.values(tMatch),
+			{
+				INPUT, Input, input,
+				DATA, Data, data,
+			}						= MetaData;
 
 		console.log(ch`  Scoring Match: "{red %s}%s{red %s}" (%d-%d)`,
-			['\r','\n', undefined].indexOf(Data[start - 1]) == -1 ? Data[start-1] : '^',
+			['\r', '\n', undefined].indexOf(Data[start - 1]) == -1 ? Data[start - 1] : '^',
 
-			tMatch.tMatches
+			tMatch.tParts
 				.slice(1)
 				.map((v, i) =>
 					i % 2 == 0
 					? ch`{green.bold ${v}}`
-					: ch`{gray ${v}}`
-				).join(''),
+					: ch`{gray ${v}}`,
+				)
+				.join(''),
+
 			['\r', '\n', undefined].indexOf(Data[end]) == -1 ? Data[end] : '$',
 			start, end,
 		);
 
 		// console.log(tMatch);
 
-		let Scores = {
-			Boundary:		0,	// Boundary Character Score
-			Consecutive:	0,	// Consecutive Characters Matched
-			SpecialChars: 0, // Number of Uppercase, Numeric or Symbol Input == Data matches
+		/** @type {fzf.MatchClasses} */
+		let Points = {
+			Boundary:		0,
+			Consecutive: 	0,
+			Capitals:		0,
+			GapLength:		0,
 		};
 
 		// First character of match
 		if(start === 0 || isBoundary(Data[start - 1]))
-			Scores.Boundary += 1.5;		// Starting Boundary Worth More
+			Points.Boundary += 1.5;		// Starting Boundary Worth More (Gets an additional 1.0 during pattern parsing)
 
-		for(let j = 0; j < match.length; j++) {
-			// noinspection JSValidateTypes
-			if(Input == 'xxxxtse') {
-				console.log(ch`      match[{yellow.bold %d}] = {yellow.bold %s}, input[{yellow.bold %d}] = {yellow.bold %s}, consecutive = {yellow.bold %d}`, j, match[j], inputAt,
-					Input[inputAt], Scores.Consecutive);
-			}
-			if(data[start + j] === input[inputAt]) {
-				if(isBoundary(Data[start + j - 1]))
-					Scores.Boundary += 1.0;
+		tParts
+			.forEach((match, idx) => {
+				if(idx == 0)
+					return;
 
-				// If our input is a boundary match, double-boundary matach
-				if(isBoundary(Data[start + j]))
-					Scores.Boundary += 2.0;
+				let matchLength = match.length;
 
-				// If the Input & Data is a capital/number/symbol
-				if(Input[inputAt] == INPUT[inputAt] && Input[inputAt] == Data[start + j]) {
-					console.log('    ', j, Input[inputAt], INPUT[inputAt], Data[start + j]);
-					Scores.SpecialChars++;
+				if(idx % 2 == 0) { // Skips 'in-between' matches and the $0 match (whole match)
+					Points.GapLength += matchLength;
+					at += matchLength;
+					return;
 				}
 
-				if(j != 0 && match[j - 1] === Input[inputAt - 1])
-					Scores.Consecutive++;
-				inputAt++;
-			}
-		}
+				// console.log('  %d: "%s", at=%d', idx, match, at);
+
+				// noinspection JSValidateTypes
+				// if(Input == 'xxxxtse') {
+				// 	console.log(ch`      match[{yellow.bold %d}] = {yellow.bold %s}, input[{yellow.bold %d}] = {yellow.bold %s}, consecutive = {yellow.bold %d}`, j, match[j],
+				// 		inputAt,
+				// 		Input[inputAt], Points.Consecutive);
+				// }
+
+				// idx % 2 == 1 == our input characters
+
+				/** Boundary Checking */
+				// If the character before our current one is a boundary
+				if(isBoundary(Data[start + at - 1]))
+					Points.Boundary += 1.0;
+
+				// If our current character is a boundary match, double-boundary matach
+				if(isBoundary(match))
+					Points.Boundary += 2.0;
+
+				/** Capital Case Match */
+				if(charClass(match) & CC_UPPER) {
+					Points.Capitals++;
+				}
+
+				/** Consecutive Characters */
+					// If the last in-between was zero length (counts current)
+					// 	OR the next one is zero length (counts current as its last of consecutive streak)
+				let prev = tMatch.tParts[idx - 1].length == 0,
+					next = tMatch.tParts[idx + 1] !== undefined ? tMatch.tParts[idx + 1].length === 0 : false;
+
+				if(prev || next) {
+					Points.Consecutive++;
+				}
+				// console.debug(ch`    {magenta Conseuctive Match}: "{green %s}" idx=%d, prev.l=%d, next.l=%d, match=%b`,
+				// 	match, idx, tMatch.tParts[idx - 1].length, tMatch.tParts[idx + 1] !== undefined ? tMatch.tParts[idx + 1].length : 9999);
+
+				at += match.length;
+			});
 
 		// if(inputAt != Input.length) {
 		// 	console.log(ch`    {red inputAt(%d) != input.length for {white input}} = {green %s}`, inputAt, Input);
 		// }
 
 		if(end === Data.length || isBoundary(Data[end]))
-			Scores.Boundary += 1.5;		// Ending on Boundary Worth More
+			Points.Boundary += 1.5;		// Ending on Boundary Worth More
 
 		if(Data[start - 1] === Data[end])
-			Scores.Boundary += 0.5;		// If the starting/ending boundary are the same character, slight bonus
+			Points.Boundary += 0.5;		// If the starting/ending boundary are the same character, slight bonus
 
-		console.log('    Scores:');
-		console.log('      Boundary   : ', Scores.Boundary);
-		console.log('      Consecutive: ', Scores.Consecutive);
-		console.log('      SpecialChars: ', Scores.SpecialChars);
+		/** @type {fzf.MatchScores} */
+		let Scores = {
+			Boundary:    Points.Boundary * Scoring.Boundary,
+			Consecutive: Points.Consecutive * Scoring.Consecutive,
+			Capitals:    Points.Capitals * Scoring.Capitals,
+			GapPenalty:  Points.GapLength * Scoring.GapPenalty,
+		};
+
+		tMatch.Points = Points;
+		tMatch.Scores = Scores;
+
+		tMatch.score		=
+			Object.values(Scores)
+				.reduce((acc, val) => acc + val, 0);
+
+		console.log('    Score: %d', tMatch.score);
+		console.log('         Boundary: %f = %f * %d', Scores.Boundary, Points.Boundary, Scoring.Boundary);
+		console.log('      Consecutive: %f = %f * %d', Scores.Consecutive, Points.Consecutive, Scoring.Consecutive);
+		console.log('         Capitals: %f = %f * %d', Scores.Capitals, Points.Capitals, Scoring.Capitals);
+		console.log('        GapLength: %f = %f * %d', Scores.GapPenalty, Points.GapLength, Scoring.GapPenalty);
 		console.log('\n');
 	}
 
@@ -231,74 +299,82 @@ module.exports = new (class Regex1Algorithm {
 	 matching at special positions, even if the total match length is longer.
 
 	 "e.g. "fuzzyfinder" vs. "fuzzy-finder" on "ff"
-	 ````````````
+	 >                        ````````````
+
 	 Also, if the first character in the pattern appears at one of the special
 	 positions, the bonus point for the position is multiplied by a constant
 	 as it is extremely likely that the first character in the typed pattern
 	 has more significance than the rest.
 
 	 "e.g. "fo-bar" vs. "foob-r" on "br"
-	 ``````
-	 -- But since fzf is still a fuzzy finder, not an acronym finder, we should also
+	 >      ``````
+
+	 ??  -- But since fzf is still a fuzzy finder, not an acronym finder, we should also
 	 consider the total length of the matched substring. This is why we have the
 	 gap penalty. The gap penalty increases as the length of the gap (distance
 	 between the matching characters) increases, so the effect of the bonus is
 	 eventually cancelled at some point.
 
 	 "e.g. "fuzzyfinder" vs. "fuzzy-blurry-finder" on "ff"
-	 ```````````
+	 >      ```````````
 
 	 Consequently, it is crucial to find the right balance between the bonus
 	 and the gap penalty. The parameters were chosen that the bonus is cancelled
 	 when the gap size increases beyond 8 characters.
 
-	 The bonus mechanism can have the undesirable side effect where consecutive
+	 ?? The bonus mechanism can have the undesirable side effect where consecutive
 	 matches are ranked lower than the ones with gaps.
 
 	 "e.g. "foobar" vs. "foo-bar" on "foob"
-	 ```````
+	 >                   ```````
 
 	 To correct this anomaly, we also give extra bonus point to each character
 	 in a consecutive matching chunk.
 
 	 "e.g. "foobar" vs. "foo-bar" on "foob"
-	 ``````
+	 >      ``````
 
-	 The amount of consecutive bonus is primarily determined by the bonus of the
+	 ?? The amount of consecutive bonus is primarily determined by the bonus of the
 	 first character in the chunk.
 
 	 "e.g. "foobar" vs. "out-of-bound" on "oob"
-	 ````````````
+	 >                   ````````````
 	 */
 
 	/**
-	 *    Matches the given ${pattern} against the ${data} repeatedly and returns the matches
+	 * Matches the given ${pattern} against the ${data} repeatedly and returns the matches
 	 *
-	 * @param {string} pattern        The regular expression pattern to find matches in ${data} for
-	 * @param {string} data            The data which we are matching against
-	 * @param {boolean} backtrack    Whether we backtrack the lastIndex to the 2nd match character after the last match
+	 * @param {string} pattern            The regular expression pattern to find matches in ${data} for
+	 * @param {string} data                The data which we are matching against
+	 * @param {number} flags            Bitfield of flags indicating options
 	 *
 	 * @returns {fzf.Match[]}
 	 */
-	MatchAll(pattern, data, backtrack = true) {
+	MatchAll(pattern, data, flags = 0) {
 		let tMatches = [];
 
 		// console.log('\n\n%s\n', pattern);
 
 		// Tick.wrap(function fn(done) {
-			let re = new RegExp(pattern, 'gim'), res = null;
-			do {
-				res = re.exec(data);
-				if(res) {
-					tMatches.push({
-						tMatches: res.filter(k => !(k in ['input', 'index'])),
-						start:    res.index,
-						end:      re.lastIndex
-					});
-					if(backtrack)
-						re.lastIndex = res.index + 1;
-				}
-			} while(res !== null);
+		let reFlags = 'gm';
+		if(!(flags & CASE_SENSITIVE))
+			reFlags += 'i';
+
+		let backtrack = !(flags & NO_BACKTRACK);
+
+		let re = new RegExp(pattern, reFlags), res = null;
+		do {
+			res = re.exec(data);
+			if(res) {
+				tMatches.push({
+					tParts: res.filter(k => !(k in ['input', 'index'])),
+					start:	res.index,
+					end:	re.lastIndex,
+				});
+				if(backtrack)
+					re.lastIndex = res.index + 1;
+			}
+		} while(res !== null);
 		// });
 		// console.log('Count: %d', tMatches.length);
 		//
