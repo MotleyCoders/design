@@ -17,8 +17,12 @@
   },
   "homepage": "https://github.com/MotleyCoders/design#readme",
   "dependencies": {
+    "@types/logform": "^1.2.0",
+    "@types/winston": "^2.3.9",
     "chalk": "^2.3.2",
     "commander": "^2.15.1",
-    "exectimer": "^2.1.0"
+    "exectimer": "^2.1.0",
+    "sprintf-js": "^1.1.1",
+    "winston": "^3.0.0-rc4"
   }
 }
