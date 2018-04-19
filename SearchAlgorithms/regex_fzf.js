@@ -15,7 +15,13 @@ const Tick = t.Tick;
 // noinspection JSUnusedLocalSymbols
 let _, __;
 
-const scoreMatch			= 16;
+const Logging = {
+	Patterns: false,
+	SearchSummary: false,
+	ScoringSummary: false,
+};
+
+const scoreMatch		= 16;
 const scoreGapStart		= -3;
 const scoreGapExtention = -1;
 
@@ -50,14 +56,12 @@ const bonusConsecutive = -(scoreGapStart + scoreGapExtention);
 const bonusFirstCharMultiplier = 2;
 
 
-const ScoreBase     = 16;
-const Scoring       = {};
-Scoring.Boundary    = ScoreBase / 2;
+const ScoreBase		= 16;
+const Scoring			= {};
+Scoring.Boundary		= ScoreBase / 2;
 Scoring.Consecutive = ScoreBase / 4;
-Scoring.Capitals    = ScoreBase;
-Scoring.GapPenalty  = -ScoreBase / 8;
-
-console.log(Scoring);
+Scoring.Capitals		= ScoreBase;
+Scoring.GapPenalty		= -ScoreBase / 8;
 
 
 // Flags to MatchAll
@@ -76,10 +80,15 @@ module.exports = new (class Regex1Algorithm {
 	constructor() {
 	}
 
+	/**
+	 * @param {string} Data
+	 * @param {string} Input
+	 * @param {number} MaxMatches
+	 */
 	search(Data, Input, MaxMatches) {
 		let tInputs = Input.split(/\s+/);
 
-		let MetaData = /** @var {fzf.MatchMetaData} */ {
+		let MetaData = /** @var {MatchMetaData} */ {
 			DATA: Data.toLocaleUpperCase(),
 			Data: Data,
 			data: Data.toLocaleLowerCase(),
@@ -104,7 +113,8 @@ module.exports = new (class Regex1Algorithm {
 				let pattern = this.CreatePattern(Input),
 					tMatches;
 
-				console.log('\nPattern: %s', pattern);
+				if(Logging.Patterns)
+					console.log('Pattern: %s', pattern);
 
 				// Tick.wrap(function fn(done) {
 
@@ -114,7 +124,8 @@ module.exports = new (class Regex1Algorithm {
 				else
 					tMatches = this.MatchAll(pattern, MetaData.data);
 
-				console.log(ch`  {yellow %d matches} for "{magenta %s}"\n`, tMatches.length, Input);
+				if(Logging.SearchSummary)
+					console.log(ch`  {yellow %d matches} for "{magenta %s}"\n`, tMatches.length, Input);
 
 				// tMatches = tMatches.slice(0, 1);
 
@@ -131,7 +142,10 @@ module.exports = new (class Regex1Algorithm {
 		// });
 
 		let tLineEnds = this.MatchAll('[\r\n]+', Data, NO_BACKTRACK);
-		console.log(ch`{bold Total Lines:} %d`, tLineEnds.length);
+
+		if(Logging.SearchSummary)
+			console.log(ch`{grey Total Lines:} %d`, tLineEnds.length);
+
 		// console.log(tLineEnds);
 
 		// if(t.timers && t.timers.fn)
@@ -162,40 +176,40 @@ module.exports = new (class Regex1Algorithm {
 	/**
 	 * Scores a given match according to the scoring methodology
 	 *
-	 * @param {fzf.Match} tMatch                The match structure to score
-	 * @param {fzf.MatchMetaData} MetaData        The current input/data state in various formats
+	 * @param {FzMatch} tMatch                The match structure to score
+	 * @param {FzMatchMetaData} MetaData        The current input/data state in various formats
 	 */
 	Score(tMatch, MetaData) {
 		let at = 0;
 
-		let [tParts, start, end] = Object.values(tMatch),
-			{
-				INPUT, Input, input,
-				DATA, Data, data,
-			}						= MetaData;
+		let [tParts, start, end] = Object.values(tMatch), {
+			INPUT, Input, input,
+			DATA, Data, data,
+		}						= MetaData;
 
-		console.log(ch`  Scoring Match: "{red %s}%s{red %s}" (%d-%d)`,
-			['\r', '\n', undefined].indexOf(Data[start - 1]) == -1 ? Data[start - 1] : '^',
+		if(Logging.ScoringSummary) {
+			console.log(ch`  Scoring Match: "{red %s}%s{red %s}" (%d-%d)`,
+				['\r', '\n', undefined].indexOf(Data[start - 1]) == -1 ? Data[start - 1] : '^',
 
-			tMatch.tParts
-				.slice(1)
-				.map((v, i) =>
-					i % 2 == 0
-					? ch`{green.bold ${v}}`
-					: ch`{gray ${v}}`,
-				)
-				.join(''),
+				tMatch.tParts
+					.slice(1)
+					.map((v, i) =>
+						i % 2 == 0
+						? ch`{green.bold ${v}}`
+						: ch`{gray ${v}}`,
+					)
+					.join(''),
 
-			['\r', '\n', undefined].indexOf(Data[end]) == -1 ? Data[end] : '$',
-			start, end,
-		);
-
+				['\r', '\n', undefined].indexOf(Data[end]) == -1 ? Data[end] : '$',
+				start, end,
+			);
+		}
 		// console.log(tMatch);
 
-		/** @type {fzf.MatchClasses} */
+		/** @type {FzMatchClasses} */
 		let Points = {
 			Boundary:		0,
-			Consecutive: 	0,
+			Consecutive: 0,
 			Capitals:		0,
 			GapLength:		0,
 		};
@@ -257,37 +271,37 @@ module.exports = new (class Regex1Algorithm {
 				at += match.length;
 			});
 
-		// if(inputAt != Input.length) {
-		// 	console.log(ch`    {red inputAt(%d) != input.length for {white input}} = {green %s}`, inputAt, Input);
-		// }
-
 		if(end === Data.length || isBoundary(Data[end]))
 			Points.Boundary += 1.5;		// Ending on Boundary Worth More
 
 		if(Data[start - 1] === Data[end])
 			Points.Boundary += 0.5;		// If the starting/ending boundary are the same character, slight bonus
 
-		/** @type {fzf.MatchScores} */
+		/** @type {FzMatchScores} */
 		let Scores = {
-			Boundary:    Points.Boundary * Scoring.Boundary,
+			Boundary:		Points.Boundary * Scoring.Boundary,
 			Consecutive: Points.Consecutive * Scoring.Consecutive,
-			Capitals:    Points.Capitals * Scoring.Capitals,
-			GapPenalty:  Points.GapLength * Scoring.GapPenalty,
+			Capitals:		Points.Capitals * Scoring.Capitals,
+			GapPenalty:		Points.GapLength * Scoring.GapPenalty,
 		};
 
 		tMatch.Points = Points;
 		tMatch.Scores = Scores;
 
-		tMatch.score		=
+		tMatch.score =
 			Object.values(Scores)
 				.reduce((acc, val) => acc + val, 0);
 
-		console.log('    Score: %d', tMatch.score);
-		console.log('         Boundary: %f = %f * %d', Scores.Boundary, Points.Boundary, Scoring.Boundary);
-		console.log('      Consecutive: %f = %f * %d', Scores.Consecutive, Points.Consecutive, Scoring.Consecutive);
-		console.log('         Capitals: %f = %f * %d', Scores.Capitals, Points.Capitals, Scoring.Capitals);
-		console.log('        GapLength: %f = %f * %d', Scores.GapPenalty, Points.GapLength, Scoring.GapPenalty);
-		console.log('\n');
+		if(Logging.ScoringSummary) {
+			console.log('    Score: %d', tMatch.score);
+			console.log('         Boundary: %f = %f * %d', Scores.Boundary, Points.Boundary, Scoring.Boundary);
+			console.log('      Consecutive: %f = %f * %d', Scores.Consecutive, Points.Consecutive, Scoring.Consecutive);
+			console.log('         Capitals: %f = %f * %d', Scores.Capitals, Points.Capitals, Scoring.Capitals);
+			console.log('        GapLength: %f = %f * %d', Scores.GapPenalty, Points.GapLength, Scoring.GapPenalty);
+			console.log('\n');
+		}
+
+		return tMatch;
 	}
 
 	/** For Reference (from fzf)
@@ -348,7 +362,7 @@ module.exports = new (class Regex1Algorithm {
 	 * @param {string} data                The data which we are matching against
 	 * @param {number} flags            Bitfield of flags indicating options
 	 *
-	 * @returns {fzf.Match[]}
+	 * @returns {FzMatch[]}
 	 */
 	MatchAll(pattern, data, flags = 0) {
 		let tMatches = [];

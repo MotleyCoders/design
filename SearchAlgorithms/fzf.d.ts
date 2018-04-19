@@ -2,7 +2,7 @@
  * These definitions are here for proper type completion for complex types
  */
 
-declare interface MatchClassesCommon {
+declare interface FzMatchClassesCommon {
 	/** Boundary Character Score */
 	Boundary: number;
 
@@ -13,17 +13,17 @@ declare interface MatchClassesCommon {
 	Capitals: number;
 }
 
-declare interface MatchClasses extends MatchClassesCommon {
+declare interface FzMatchClasses extends FzMatchClassesCommon {
 	/** Count of characters between input matches */
 	GapLength: number;
 }
 
-declare interface MatchScores extends MatchClassesCommon {
+declare interface FzMatchScores extends FzMatchClassesCommon {
 	/** The penalty score for gaps in-between matching characters */
 	GapPenalty: number;
 }
 
-declare interface Match {
+declare interface FzMatch {
 	/** The full match of the pattern from the input */
 	tParts: string[];
 
@@ -37,13 +37,13 @@ declare interface Match {
 	score: number;
 
 	/** The individual class points calculated for the match */
-	Points: MatchClasses;
+	Points: FzMatchClasses;
 
 	/** The total scores per class calculated for the match */
-	Scores: MatchScores;
+	Scores: FzMatchScores;
 }
 
-declare interface MatchMetaData {
+declare interface FzMatchMetaData {
 	/** The original item data in UPPER/Original/lowercase formats - Optimized conversion location */
 	DATA: string;
 	Data: string;

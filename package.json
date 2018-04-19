@@ -1,28 +1,31 @@
 {
-  "name": "design",
-  "version": "0.0.1",
-  "description": "Playground for design",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/MotleyCoders/design.git"
-  },
-  "author": "Clint Priest of MotleyCoders",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/MotleyCoders/design/issues"
-  },
-  "homepage": "https://github.com/MotleyCoders/design#readme",
-  "dependencies": {
-    "@types/logform": "^1.2.0",
-    "@types/winston": "^2.3.9",
-    "chalk": "^2.3.2",
-    "commander": "^2.15.1",
-    "exectimer": "^2.1.0",
-    "sprintf-js": "^1.1.1",
-    "winston": "^3.0.0-rc4"
-  }
+	"name":			"design",
+	"version":		"0.0.1",
+	"author":		"Clint Priest of MotleyCoders",
+	"description":	"Playground for design",
+	"repository":	{
+		"type": "git",
+		"url":	"git+https://github.com/MotleyCoders/design.git"
+	},
+	"license":		"MIT",
+	"bugs":			{
+		"url": "https://github.com/MotleyCoders/design/issues"
+	},
+	"homepage":		"https://github.com/MotleyCoders/design#readme",
+	"engines":		{
+		"node": ">=9.9.0"
+	},
+
+	"dependencies": {
+		"@types/logform": "^1.2.0",
+		"@types/node":		"^9.6.5",
+		"@types/winston": "^2.3.9",
+		"chalk":			"^2.3.2",
+		"commander":		"^2.15.1",
+		"sprintf-js":		"^1.1.1",
+		"winston":			"^3.0.0-rc4"
+	},
+	"devDependencies": {
+		"exectimer": "^2.1.0"
+	}
 }
