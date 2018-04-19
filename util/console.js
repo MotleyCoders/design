@@ -28,11 +28,32 @@ const logger = createLogger({
 });
 
 // noinspection JSUndefinedPropertyAssignment
+/**
+ * We override winston _splat with our own simpler version as the standard splat
+ *    only takes arguments matching the simple console replacements, of the remaining
+ *    arguments only the first is put into meta, the rest are discarded.  This corrects
+ *    that but also sacrifices the meta field.   As of winston@3.0.0-rc4
+ *
+ * @param {TransformableInfo} info	Message level
+ * @param {string[]} tokens			The standard tokens recognized
+ * @param {*} splat					The extra arguments
+ * @private
+ */
 logger._splat = function _splat(info, tokens, splat) {
+	// noinspection JSUndefinedPropertyAssignment
 	info.splat = splat;
 	this.write(info);
 };
 
+/**
+ * We wrap the winston logger because it only recognizes simple %s/%d, etc patterns
+ *    It also must detect at least one standard %s, so we append a blank %s to the
+ *    arguments so that it will call the branch we need.  As of winston@3.0.0-rc4
+ *
+ * @param {string} level
+ * @param {string} msg
+ * @param {*} args
+ */
 function wrappedLog(level, msg, ...args) {
 	// If there are any % arguments, we append %s and an additional blank string,
 	// then let the original take it with our own _splat implementation
