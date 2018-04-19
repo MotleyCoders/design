@@ -8,20 +8,22 @@
 
 
 const t	= require('exectimer');
-const ch	= require('chalk');
 const Tick = t.Tick;
+const logger = require('../util/console');
+const log = logger.info.bind(logger);
 
 // Temporary Usage
 // noinspection JSUnusedLocalSymbols
 let _, __;
 
 const Logging = {
-	Patterns: false,
-	SearchSummary: false,
-	ScoringSummary: false,
+	Patterns:		false,
+	SearchSummary:	false,
+	ScoringSummary: true,
+	ScoringDetail:	false,
 };
 
-const scoreMatch		= 16;
+const scoreMatch			= 16;
 const scoreGapStart		= -3;
 const scoreGapExtention = -1;
 
@@ -100,9 +102,9 @@ module.exports = new (class Regex1Algorithm {
 		 * Going to attempt the same/similar with regex
 		 */
 
-		// console.log('\nInput: %s\n\nData:\n%s\n', Input, Data);
-		// console.log(0, Data);
-		// console.log('\n\n');
+		// log('\nInput: %s\n\nData:\n%s\n', Input, Data);
+		// log(0, Data);
+		// log('\n\n');
 
 		tInputs
 			.forEach((Input) => {
@@ -114,7 +116,7 @@ module.exports = new (class Regex1Algorithm {
 					tMatches;
 
 				if(Logging.Patterns)
-					console.log('Pattern: %s', pattern);
+					log('Pattern: %s', pattern);
 
 				// Tick.wrap(function fn(done) {
 
@@ -124,8 +126,8 @@ module.exports = new (class Regex1Algorithm {
 				else
 					tMatches = this.MatchAll(pattern, MetaData.data);
 
-				if(Logging.SearchSummary)
-					console.log(ch`  {yellow %d matches} for "{magenta %s}"\n`, tMatches.length, Input);
+				if(Logging.SearchSummary || Logging.ScoringSummary)
+					log(`  {yellow.bold %d matches} for "{bold.hex('#f0f') %s}"`, tMatches.length, Input);
 
 				// tMatches = tMatches.slice(0, 1);
 
@@ -133,10 +135,12 @@ module.exports = new (class Regex1Algorithm {
 				// .sort((l, r) => l.match.length - r.match.length)
 					.map((tMatch) => this.Score(tMatch, MetaData))
 				;
+				if(Logging.SearchSummary || Logging.ScoringSummary)
+					log('');	// Blank Line
 
-				// console.log(tMatches);
+				// log(tMatches);
 
-				// console.log('\n\n');
+				// log('\n\n');
 				// done();
 			});
 		// });
@@ -144,18 +148,18 @@ module.exports = new (class Regex1Algorithm {
 		let tLineEnds = this.MatchAll('[\r\n]+', Data, NO_BACKTRACK);
 
 		if(Logging.SearchSummary)
-			console.log(ch`{grey Total Lines:} %d`, tLineEnds.length);
+			log('{grey Total Lines:} %d', tLineEnds.length);
 
-		// console.log(tLineEnds);
+		// log(tLineEnds);
 
 		// if(t.timers && t.timers.fn)
 		// 	t.timers.fn.printResults();
 
 		// for(let part of tInputs) {
-		// 	console.log(part);
+		// 	log(part);
 		// }
 
-//		console.log(`searching with ${Input}`);
+//		log(`searching with ${Input}`);
 
 	}
 
@@ -185,26 +189,10 @@ module.exports = new (class Regex1Algorithm {
 		let [tParts, start, end] = Object.values(tMatch), {
 			INPUT, Input, input,
 			DATA, Data, data,
-		}						= MetaData;
+		}							= MetaData;
 
 		if(Logging.ScoringSummary) {
-			console.log(ch`  Scoring Match: "{red %s}%s{red %s}" (%d-%d)`,
-				['\r', '\n', undefined].indexOf(Data[start - 1]) == -1 ? Data[start - 1] : '^',
-
-				tMatch.tParts
-					.slice(1)
-					.map((v, i) =>
-						i % 2 == 0
-						? ch`{green.bold ${v}}`
-						: ch`{gray ${v}}`,
-					)
-					.join(''),
-
-				['\r', '\n', undefined].indexOf(Data[end]) == -1 ? Data[end] : '$',
-				start, end,
-			);
 		}
-		// console.log(tMatch);
 
 		/** @type {FzMatchClasses} */
 		let Points = {
@@ -231,11 +219,11 @@ module.exports = new (class Regex1Algorithm {
 					return;
 				}
 
-				// console.log('  %d: "%s", at=%d', idx, match, at);
+				// log('  %d: "%s", at=%d', idx, match, at);
 
 				// noinspection JSValidateTypes
 				// if(Input == 'xxxxtse') {
-				// 	console.log(ch`      match[{yellow.bold %d}] = {yellow.bold %s}, input[{yellow.bold %d}] = {yellow.bold %s}, consecutive = {yellow.bold %d}`, j, match[j],
+				// 	log('      match[{yellow.bold %d}] = {yellow.bold %s}, input[{yellow.bold %d}] = {yellow.bold %s}, consecutive = {yellow.bold %d}', j, match[j],
 				// 		inputAt,
 				// 		Input[inputAt], Points.Consecutive);
 				// }
@@ -265,7 +253,7 @@ module.exports = new (class Regex1Algorithm {
 				if(prev || next) {
 					Points.Consecutive++;
 				}
-				// console.debug(ch`    {magenta Conseuctive Match}: "{green %s}" idx=%d, prev.l=%d, next.l=%d, match=%b`,
+				// console.debug('    {magenta Conseuctive Match}: "{green %s}" idx=%d, prev.l=%d, next.l=%d, match=%b',
 				// 	match, idx, tMatch.tParts[idx - 1].length, tMatch.tParts[idx + 1] !== undefined ? tMatch.tParts[idx + 1].length : 9999);
 
 				at += match.length;
@@ -293,12 +281,29 @@ module.exports = new (class Regex1Algorithm {
 				.reduce((acc, val) => acc + val, 0);
 
 		if(Logging.ScoringSummary) {
-			console.log('    Score: %d', tMatch.score);
-			console.log('         Boundary: %f = %f * %d', Scores.Boundary, Points.Boundary, Scoring.Boundary);
-			console.log('      Consecutive: %f = %f * %d', Scores.Consecutive, Points.Consecutive, Scoring.Consecutive);
-			console.log('         Capitals: %f = %f * %d', Scores.Capitals, Points.Capitals, Scoring.Capitals);
-			console.log('        GapLength: %f = %f * %d', Scores.GapPenalty, Points.GapLength, Scoring.GapPenalty);
-			console.log('\n');
+			log(`    Scored {bold.hex('#f0f') %d} for "{red %s}%s{red %s}" (%d-%d) `,
+				tMatch.score,
+				['\r', '\n', undefined].indexOf(Data[start - 1]) == -1 ? Data[start - 1] : '^',
+
+				tMatch.tParts
+					.slice(1)
+					.map((v, i) =>
+						i % 2 == 0
+						? `{green.bold ${v}}`
+						: `{rgb(150,150,150) ${v}}`,
+					)
+					.join(''),
+
+				['\r', '\n', undefined].indexOf(Data[end]) == -1 ? Data[end] : '$',
+				start, end
+			);
+			if(Logging.ScoringDetail) {
+				log('         Boundary: %f = %f * %d', Scores.Boundary, Points.Boundary, Scoring.Boundary);
+				log('      Consecutive: %f = %f * %d', Scores.Consecutive, Points.Consecutive, Scoring.Consecutive);
+				log('         Capitals: %f = %f * %d', Scores.Capitals, Points.Capitals, Scoring.Capitals);
+				log('        GapLength: %f = %f * %d', Scores.GapPenalty, Points.GapLength, Scoring.GapPenalty);
+				log('');	// Blank Line
+			}
 		}
 
 		return tMatch;
@@ -367,7 +372,7 @@ module.exports = new (class Regex1Algorithm {
 	MatchAll(pattern, data, flags = 0) {
 		let tMatches = [];
 
-		// console.log('\n\n%s\n', pattern);
+		// log('\n\n%s\n', pattern);
 
 		// Tick.wrap(function fn(done) {
 		let reFlags = 'gm';
@@ -390,9 +395,9 @@ module.exports = new (class Regex1Algorithm {
 			}
 		} while(res !== null);
 		// });
-		// console.log('Count: %d', tMatches.length);
+		// log('Count: %d', tMatches.length);
 		//
-		// console.log(tMatches.slice(0, 2));
+		// log(tMatches.slice(0, 2));
 
 		// if(t.timers && t.timers.fn)
 		// 	t.timers.fn.printResults();
