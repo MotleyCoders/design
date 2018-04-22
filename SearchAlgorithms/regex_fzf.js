@@ -9,21 +9,22 @@
 
 const t	= require('exectimer');
 const Tick = t.Tick;
-const logger = require('../util/console');
-const log = logger.info.bind(logger);
+
+/** @type {WinstonChalkyConsole} */
+const log = require('../util/console');
 
 // Temporary Usage
 // noinspection JSUnusedLocalSymbols
 let _, __;
 
 const Logging = {
-	Patterns:		false,
-	SearchSummary:	false,
+	Patterns:		true,
+	SearchSummary: true,
 	ScoringSummary: true,
-	ScoringDetail:	false,
+	ScoringDetail:	true,
 };
 
-const scoreMatch			= 16;
+const scoreMatch		= 16;
 const scoreGapStart		= -3;
 const scoreGapExtention = -1;
 
@@ -90,7 +91,7 @@ module.exports = new (class Regex1Algorithm {
 	search(Data, Input, MaxMatches) {
 		let tInputs = Input.split(/\s+/);
 
-		let MetaData = /** @var {MatchMetaData} */ {
+		let MetaData = /** @var {FzMatchMetaData} */ {
 			DATA: Data.toLocaleUpperCase(),
 			Data: Data,
 			data: Data.toLocaleLowerCase(),
@@ -102,9 +103,9 @@ module.exports = new (class Regex1Algorithm {
 		 * Going to attempt the same/similar with regex
 		 */
 
-		// log('\nInput: %s\n\nData:\n%s\n', Input, Data);
-		// log(0, Data);
-		// log('\n\n');
+		// log.info('\nInput: %s\n\nData:\n%s\n', Input, Data);
+		// log.info(0, Data);
+		// log.info('\n\n');
 
 		tInputs
 			.forEach((Input) => {
@@ -116,7 +117,7 @@ module.exports = new (class Regex1Algorithm {
 					tMatches;
 
 				if(Logging.Patterns)
-					log('Pattern: %s', pattern);
+					log.section('Pattern: %s', pattern);
 
 				// Tick.wrap(function fn(done) {
 
@@ -127,7 +128,7 @@ module.exports = new (class Regex1Algorithm {
 					tMatches = this.MatchAll(pattern, MetaData.data);
 
 				if(Logging.SearchSummary || Logging.ScoringSummary)
-					log(`  {yellow.bold %d matches} for "{bold.hex('#f0f') %s}"`, tMatches.length, Input);
+					log.section(`{yellow.bold %d matches} for "{bold.hex('#f0f') %s}"`, tMatches.length, Input);
 
 				// tMatches = tMatches.slice(0, 1);
 
@@ -136,11 +137,13 @@ module.exports = new (class Regex1Algorithm {
 					.map((tMatch) => this.Score(tMatch, MetaData))
 				;
 				if(Logging.SearchSummary || Logging.ScoringSummary)
-					log('');	// Blank Line
+					log.info('').sectionEnd();	// Blank Line
 
-				// log(tMatches);
+				if(Logging.Patterns)
+					log.sectionEnd();
+				// log.info(tMatches);
 
-				// log('\n\n');
+				// log.info('\n\n');
 				// done();
 			});
 		// });
@@ -148,18 +151,18 @@ module.exports = new (class Regex1Algorithm {
 		let tLineEnds = this.MatchAll('[\r\n]+', Data, NO_BACKTRACK);
 
 		if(Logging.SearchSummary)
-			log('{grey Total Lines:} %d', tLineEnds.length);
+			log.info('{grey Total Lines:} %d', tLineEnds.length);
 
-		// log(tLineEnds);
+		// log.info(tLineEnds);
 
 		// if(t.timers && t.timers.fn)
 		// 	t.timers.fn.printResults();
 
 		// for(let part of tInputs) {
-		// 	log(part);
+		// 	log.info(part);
 		// }
 
-//		log(`searching with ${Input}`);
+//		log.info(`searching with ${Input}`);
 
 	}
 
@@ -219,11 +222,11 @@ module.exports = new (class Regex1Algorithm {
 					return;
 				}
 
-				// log('  %d: "%s", at=%d', idx, match, at);
+				// log.info('  %d: "%s", at=%d', idx, match, at);
 
 				// noinspection JSValidateTypes
 				// if(Input == 'xxxxtse') {
-				// 	log('      match[{yellow.bold %d}] = {yellow.bold %s}, input[{yellow.bold %d}] = {yellow.bold %s}, consecutive = {yellow.bold %d}', j, match[j],
+				// 	log.info('      match[{yellow.bold %d}] = {yellow.bold %s}, input[{yellow.bold %d}] = {yellow.bold %s}, consecutive = {yellow.bold %d}', j, match[j],
 				// 		inputAt,
 				// 		Input[inputAt], Points.Consecutive);
 				// }
@@ -281,7 +284,7 @@ module.exports = new (class Regex1Algorithm {
 				.reduce((acc, val) => acc + val, 0);
 
 		if(Logging.ScoringSummary) {
-			log(`    Scored {bold.hex('#f0f') %d} for "{red %s}%s{red %s}" (%d-%d) `,
+			log.section('Scored {bold.hex("#f0f") %d} for "{red %s}%s{red %s}" (%d-%d) ',
 				tMatch.score,
 				['\r', '\n', undefined].indexOf(Data[start - 1]) == -1 ? Data[start - 1] : '^',
 
@@ -298,12 +301,13 @@ module.exports = new (class Regex1Algorithm {
 				start, end
 			);
 			if(Logging.ScoringDetail) {
-				log('         Boundary: %f = %f * %d', Scores.Boundary, Points.Boundary, Scoring.Boundary);
-				log('      Consecutive: %f = %f * %d', Scores.Consecutive, Points.Consecutive, Scoring.Consecutive);
-				log('         Capitals: %f = %f * %d', Scores.Capitals, Points.Capitals, Scoring.Capitals);
-				log('        GapLength: %f = %f * %d', Scores.GapPenalty, Points.GapLength, Scoring.GapPenalty);
-				log('');	// Blank Line
+				log.info('   Boundary: %f = %f * %d', Scores.Boundary, Points.Boundary, Scoring.Boundary);
+				log.info('Consecutive: %f = %f * %d', Scores.Consecutive, Points.Consecutive, Scoring.Consecutive);
+				log.info('   Capitals: %f = %f * %d', Scores.Capitals, Points.Capitals, Scoring.Capitals);
+				log.info('  GapLength: %f = %f * %d', Scores.GapPenalty, Points.GapLength, Scoring.GapPenalty);
+				log.info('');	// Blank Line
 			}
+			log.sectionEnd();
 		}
 
 		return tMatch;
@@ -372,7 +376,7 @@ module.exports = new (class Regex1Algorithm {
 	MatchAll(pattern, data, flags = 0) {
 		let tMatches = [];
 
-		// log('\n\n%s\n', pattern);
+		// log.info('\n\n%s\n', pattern);
 
 		// Tick.wrap(function fn(done) {
 		let reFlags = 'gm';
@@ -395,9 +399,9 @@ module.exports = new (class Regex1Algorithm {
 			}
 		} while(res !== null);
 		// });
-		// log('Count: %d', tMatches.length);
+		// log.info('Count: %d', tMatches.length);
 		//
-		// log(tMatches.slice(0, 2));
+		// log.info(tMatches.slice(0, 2));
 
 		// if(t.timers && t.timers.fn)
 		// 	t.timers.fn.printResults();
