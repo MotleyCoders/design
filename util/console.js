@@ -7,9 +7,11 @@ const { sprintf } = require('sprintf-js');
 
 const ch = require('./chalky');
 
+let logger;
+
 const myOutput = printf(info => {
 	if(info.timestamp)
-		info.message = `{grey ${info.timestamp}}: ${info.message}`;
+		info.message = `{grey ${info.timestamp}}: ${logger.indentStr.repeat(logger.indentLevel)}${info.message}`;
 
 	if(info.splat) {
 		return ch`${sprintf(info.message, ...info.splat)}`;
@@ -19,13 +21,27 @@ const myOutput = printf(info => {
 });
 
 /** @type {WinstonChalkyConsole} */
-const logger = createLogger({
+logger = createLogger({
 	format:		combine(
 		timestamp({ format: 'HH:mm:ss A' }),
 		myOutput,
 	),
 	transports: [new transports.Console({ level: 'silly' })],
 });
+
+logger.indentStr = '   ';
+logger.indentLevel = 0;
+
+logger.__proto__.section = function section(msg, ...args) {
+	this.log('info', msg, ...args);
+	this.indentLevel++;
+	return this;
+};
+
+logger.__proto__.sectionEnd = function sectionEnd() {
+	this.indentLevel = Math.max(this.indentLevel-1, 0);
+	return this;
+};
 
 // noinspection JSUndefinedPropertyAssignment
 /**
@@ -45,6 +61,9 @@ logger._splat = function _splat(info, tokens, splat) {
 	this.write(info);
 };
 
+// noinspection JSUndefinedPropertyAssignment
+logger._log = logger.log;
+
 /**
  * We wrap the winston logger because it only recognizes simple %s/%d, etc patterns
  *    It also must detect at least one standard %s, so we append a blank %s to the
@@ -54,7 +73,7 @@ logger._splat = function _splat(info, tokens, splat) {
  * @param {string} msg
  * @param {*} args
  */
-function wrappedLog(level, msg, ...args) {
+logger.__proto__.log = function wrappedLog(level, msg, ...args) {
 	// If there are any % arguments, we append %s and an additional blank string,
 	// then let the original take it with our own _splat implementation
 	if(msg.match(/%[^%]/)) {
@@ -62,12 +81,8 @@ function wrappedLog(level, msg, ...args) {
 		args.push('');
 	}
 	this._log(level, msg, ...args);
-}
-
-// noinspection JSUndefinedPropertyAssignment
-logger._log = logger.log;
-logger.log		= wrappedLog.bind(logger);
-
+	return this;
+};
 
 /**
  * At some point I may want to make this more configurable, at this time this effectively
