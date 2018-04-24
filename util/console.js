@@ -23,7 +23,7 @@ const myOutput = printf(info => {
 /** @type {WinstonChalkyConsole} */
 logger = createLogger({
 	format:		combine(
-		timestamp({ format: 'HH:mm:ss A' }),
+		// timestamp({ format: 'HH:mm:ss A' }),
 		myOutput,
 	),
 	transports: [new transports.Console({ level: 'silly' })],

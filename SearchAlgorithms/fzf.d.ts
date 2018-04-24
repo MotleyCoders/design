@@ -34,13 +34,27 @@ declare interface FzMatch {
 	end: number;
 
 	/** The final score of this match against the data */
-	score: number;
+	Score: number;
 
 	/** The individual class points calculated for the match */
 	Points: FzMatchClasses;
 
 	/** The total scores per class calculated for the match */
 	Scores: FzMatchScores;
+
+	/** The line item data for the match */
+	Item: FzMatchItem;
+}
+
+declare interface FzMatchItem {
+	/** The 0 based line number of the match */
+	Line: number;
+
+	/** The 0 base start character of the match (from the raw data) */
+	Start: number;
+
+	/** The 0 base end character of the match (from the raw data) */
+	End: number;
 }
 
 declare interface FzMatchMetaData {

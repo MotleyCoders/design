@@ -13,20 +13,25 @@ const Tick = t.Tick;
 /** @type {WinstonChalkyConsole} */
 const log = require('../util/console');
 
+const util = require('util');
+util.inspect.defaultOptions.colors = true;
+util.inspect.defaultOptions.depth = 5;
+util.inspect.defaultOptions.breakLength = 100;
+
 // Temporary Usage
 // noinspection JSUnusedLocalSymbols
 let _, __;
 
 const Logging = {
-	Patterns:		true,
-	SearchSummary: true,
+	Patterns:		false,
+	SearchSummary:	true,
 	ScoringSummary: true,
 	ScoringDetail:	true,
 };
 
-const scoreMatch		= 16;
-const scoreGapStart		= -3;
-const scoreGapExtention = -1;
+const ScoreMatch			= 16;
+const ScoreGapStart		= -3;
+const ScoreGapExtention = -1;
 
 // We prefer matches at the beginning of a word, but the bonus should not be
 // too great to prevent the longer acronym matches from always winning over
@@ -34,22 +39,22 @@ const scoreGapExtention = -1;
 // the bonus is cancelled when the gap between the acronyms grows over
 // 8 characters, which is approximately the average length of the words found
 // in web2 dictionary and my file system.
-const bonusBoundary = scoreMatch / 2;
+const bonusBoundary = ScoreMatch / 2;
 
 // Although bonus point for non-word characters is non-contextual, we need it
 // for computing bonus points for consecutive chunks starting with a non-word
 // character.
-const bonusNonWord = scoreMatch / 2;
+const bonusNonWord = ScoreMatch / 2;
 
 // Edge-triggered bonus for matches in camelCase words.
 // Compared to word-boundary case, they don't accompany single-character gaps
 // (e.g. FooBar vs. foo-bar), so we deduct bonus point accordingly.
-const bonusCamel123 = bonusBoundary + scoreGapExtention;
+const bonusCamel123 = bonusBoundary + ScoreGapExtention;
 
 // Minimum bonus point given to characters in consecutive chunks.
 // Note that bonus points for consecutive matches shouldn't have needed if we
-// used fixed match score as in the original algorithm.
-const bonusConsecutive = -(scoreGapStart + scoreGapExtention);
+// used fixed match Score as in the original algorithm.
+const bonusConsecutive = -(ScoreGapStart + ScoreGapExtention);
 
 // The first character in the typed pattern usually has more significance
 // than the rest so it's important that it appears at special positions where
@@ -61,11 +66,10 @@ const bonusFirstCharMultiplier = 2;
 
 const ScoreBase		= 16;
 const Scoring			= {};
-Scoring.Boundary		= ScoreBase / 2;
-Scoring.Consecutive = ScoreBase / 4;
+Scoring.Boundary		= ScoreBase / 3;
+Scoring.Consecutive = ScoreBase / 2;
 Scoring.Capitals		= ScoreBase;
-Scoring.GapPenalty		= -ScoreBase / 8;
-
+Scoring.GapPenalty		= -ScoreBase / (ScoreBase);
 
 // Flags to MatchAll
 const NO_BACKTRACK		= 1;	// Do not backtrack the lastIndex
@@ -79,7 +83,7 @@ const CC_ALNUM1	= 6;		// AlphaNumeric NUM + ALPHA = 6 (7 if uppercase)
 const CC_ALNUM2	= 7;		// AlphaNumeric NUM + ALPHA = 6 (7 if uppercase)
 const CC_BOUNDARY = 8;
 
-module.exports = new (class Regex1Algorithm {
+module.exports = new class Regex1Algorithm {
 	constructor() {
 	}
 
@@ -89,7 +93,7 @@ module.exports = new (class Regex1Algorithm {
 	 * @param {number} MaxMatches
 	 */
 	search(Data, Input, MaxMatches) {
-		let tInputs = Input.split(/\s+/);
+		let Inputs = Input.split(/\s+/);
 
 		let MetaData = /** @var {FzMatchMetaData} */ {
 			DATA: Data.toLocaleUpperCase(),
@@ -103,18 +107,17 @@ module.exports = new (class Regex1Algorithm {
 		 * Going to attempt the same/similar with regex
 		 */
 
-		// log.info('\nInput: %s\n\nData:\n%s\n', Input, Data);
-		// log.info(0, Data);
-		// log.info('\n\n');
+		/** Get all line ending matches */
+		let LineEnds = this.MatchAll('[\r\n]+', Data, NO_BACKTRACK);
 
-		tInputs
-			.forEach((Input) => {
+		let ItemScores = Inputs
+			.map((Input, InputIndex) => {
 				MetaData.INPUT = Input.toLocaleUpperCase();
 				MetaData.Input = Input;
 				MetaData.input = Input.toLocaleLowerCase();
 
 				let pattern = this.CreatePattern(Input),
-					tMatches;
+					Matches;
 
 				if(Logging.Patterns)
 					log.section('Pattern: %s', pattern);
@@ -123,42 +126,78 @@ module.exports = new (class Regex1Algorithm {
 
 				// If our input pattern is not all lowercase, match case sensitively
 				if(MetaData.Input !== MetaData.input)
-					tMatches = this.MatchAll(pattern, MetaData.Data, CASE_SENSITIVE);
+					Matches = this.MatchAll(pattern, MetaData.Data, CASE_SENSITIVE);
 				else
-					tMatches = this.MatchAll(pattern, MetaData.data);
+					Matches = this.MatchAll(pattern, MetaData.data);
 
 				if(Logging.SearchSummary || Logging.ScoringSummary)
-					log.section(`{yellow.bold %d matches} for "{bold.hex('#f0f') %s}"`, tMatches.length, Input);
+					log.section(`{yellow.bold %d matches} for "{bold.hex('#f0f') %s}"`, Matches.length, Input);
 
-				// tMatches = tMatches.slice(0, 1);
+				// Matches = Matches.slice(0, 1);
 
-				tMatches
+				Matches
 				// .sort((l, r) => l.match.length - r.match.length)
-					.map((tMatch) => this.Score(tMatch, MetaData))
+					.map((Match) => {
+						Match.InputIndex = InputIndex;
+						Match.ItemIndex		= LineEnds.findIndex((line) => Match.end <= line.end);
+						return Match;
+					})
+					.map((Match) => this.Score(Match, MetaData))
 				;
 				if(Logging.SearchSummary || Logging.ScoringSummary)
-					log.info('').sectionEnd();	// Blank Line
+					log.info('')
+						.sectionEnd();	// Blank Line
 
 				if(Logging.Patterns)
 					log.sectionEnd();
-				// log.info(tMatches);
+				// log.info(Matches);
 
 				// log.info('\n\n');
 				// done();
+				return Matches;
+			})
+
+			/** Group Raw Matches by ItemIndex : InputMatches */
+			.reduce((acc, Matches) => {
+				for(let Match of Matches) {
+					let ItemMatch = acc[Match.ItemIndex] || {
+						Score:			1,
+						ItemIndex:		Match.ItemIndex,
+						InputMatches: [],
+					};
+					ItemMatch.InputMatches[Match.InputIndex] = ItemMatch.InputMatches[Match.InputIndex] || [];
+					ItemMatch.InputMatches[Match.InputIndex].push(Match);
+					acc[Match.ItemIndex] = ItemMatch;
+				}
+				return acc;
+			}, [])
+
+			/** Sort Input Matches by Score and Calculate ItemMatch Score */
+			.map((ItemMatch) => {
+				for(let InputMatch of ItemMatch.InputMatches) {
+					InputMatch.sort((a, b) => b.Score - a.Score);
+					ItemMatch.Score = ItemMatch.Score * InputMatch[0].Score;
+				}
+				return ItemMatch;
+			})
+			.sort((a, b) => {
+				return b.Score - a.Score;
 			});
 		// });
 
-		let tLineEnds = this.MatchAll('[\r\n]+', Data, NO_BACKTRACK);
+		console.log(util.inspect(ItemScores));
+		console.log(Number.MAX_SAFE_INTEGER);
+		console.log(Number.MAX_VALUE);
 
 		if(Logging.SearchSummary)
-			log.info('{grey Total Lines:} %d', tLineEnds.length);
+			log.info('{grey Total Lines:} %d', LineEnds.length);
 
-		// log.info(tLineEnds);
+		// log.info(LineEnds);
 
 		// if(t.timers && t.timers.fn)
 		// 	t.timers.fn.printResults();
 
-		// for(let part of tInputs) {
+		// for(let part of Inputs) {
 		// 	log.info(part);
 		// }
 
@@ -183,13 +222,13 @@ module.exports = new (class Regex1Algorithm {
 	/**
 	 * Scores a given match according to the scoring methodology
 	 *
-	 * @param {FzMatch} tMatch                The match structure to score
+	 * @param {FzMatch} Match                The match structure to Score
 	 * @param {FzMatchMetaData} MetaData        The current input/data state in various formats
 	 */
-	Score(tMatch, MetaData) {
+	Score(Match, MetaData) {
 		let at = 0;
 
-		let [tParts, start, end] = Object.values(tMatch), {
+		let [tParts, start, end] = Object.values(Match), {
 			INPUT, Input, input,
 			DATA, Data, data,
 		}							= MetaData;
@@ -250,14 +289,14 @@ module.exports = new (class Regex1Algorithm {
 				/** Consecutive Characters */
 					// If the last in-between was zero length (counts current)
 					// 	OR the next one is zero length (counts current as its last of consecutive streak)
-				let prev = tMatch.tParts[idx - 1].length == 0,
-					next = tMatch.tParts[idx + 1] !== undefined ? tMatch.tParts[idx + 1].length === 0 : false;
+				let prev = Match.tParts[idx - 1].length == 0,
+					next = Match.tParts[idx + 1] !== undefined ? Match.tParts[idx + 1].length === 0 : false;
 
 				if(prev || next) {
 					Points.Consecutive++;
 				}
 				// console.debug('    {magenta Conseuctive Match}: "{green %s}" idx=%d, prev.l=%d, next.l=%d, match=%b',
-				// 	match, idx, tMatch.tParts[idx - 1].length, tMatch.tParts[idx + 1] !== undefined ? tMatch.tParts[idx + 1].length : 9999);
+				// 	match, idx, Match.tParts[idx - 1].length, Match.tParts[idx + 1] !== undefined ? Match.tParts[idx + 1].length : 9999);
 
 				at += match.length;
 			});
@@ -276,19 +315,23 @@ module.exports = new (class Regex1Algorithm {
 			GapPenalty:		Points.GapLength * Scoring.GapPenalty,
 		};
 
-		tMatch.Points = Points;
-		tMatch.Scores = Scores;
+		Match.Points = Points;
+		Match.Scores = Scores;
 
-		tMatch.score =
-			Object.values(Scores)
-				.reduce((acc, val) => acc + val, 0);
+		Match.Score =
+			Math.round(
+				Object.values(Scores)
+					.reduce((acc, val) => acc + val, 0)
+			);
 
 		if(Logging.ScoringSummary) {
-			log.section('Scored {bold.hex("#f0f") %d} for "{red %s}%s{red %s}" (%d-%d) ',
-				tMatch.score,
+			log.section('Scored {bold.hex("#f0f") %4d} for Item %4d: "{red %s}%s{red %s}" (%d-%d) ',
+				Match.Score,
+				Match.ItemIndex + 1,
+
 				['\r', '\n', undefined].indexOf(Data[start - 1]) == -1 ? Data[start - 1] : '^',
 
-				tMatch.tParts
+				Match.tParts
 					.slice(1)
 					.map((v, i) =>
 						i % 2 == 0
@@ -298,19 +341,20 @@ module.exports = new (class Regex1Algorithm {
 					.join(''),
 
 				['\r', '\n', undefined].indexOf(Data[end]) == -1 ? Data[end] : '$',
-				start, end
+
+				start, end,
 			);
 			if(Logging.ScoringDetail) {
-				log.info('   Boundary: %f = %f * %d', Scores.Boundary, Points.Boundary, Scoring.Boundary);
-				log.info('Consecutive: %f = %f * %d', Scores.Consecutive, Points.Consecutive, Scoring.Consecutive);
-				log.info('   Capitals: %f = %f * %d', Scores.Capitals, Points.Capitals, Scoring.Capitals);
-				log.info('  GapLength: %f = %f * %d', Scores.GapPenalty, Points.GapLength, Scoring.GapPenalty);
+				log.info('   Boundary: %6.1f = %4.1f * %2d', Scores.Boundary, Points.Boundary, Scoring.Boundary);
+				log.info('Consecutive: %6.1f = %4.1f * %2d', Scores.Consecutive, Points.Consecutive, Scoring.Consecutive);
+				log.info('   Capitals: %6.1f = %4.1f * %2d', Scores.Capitals, Points.Capitals, Scoring.Capitals);
+				log.info('  GapLength: %6.1f = %4.1f * %2d', Scores.GapPenalty, Points.GapLength, Scoring.GapPenalty);
 				log.info('');	// Blank Line
 			}
 			log.sectionEnd();
 		}
 
-		return tMatch;
+		return Match;
 	}
 
 	/** For Reference (from fzf)
@@ -408,7 +452,7 @@ module.exports = new (class Regex1Algorithm {
 
 		return tMatches;
 	}
-});
+}();
 
 
 /**
