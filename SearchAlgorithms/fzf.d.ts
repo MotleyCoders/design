@@ -68,3 +68,7 @@ declare interface FzMatchMetaData {
 	Input: string;
 	input: string;
 }
+
+declare class FzMap<T> {
+	[key: string]: T;
+}

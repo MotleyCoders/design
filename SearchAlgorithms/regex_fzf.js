@@ -13,9 +13,9 @@ const Tick = t.Tick;
 /** @type {WinstonChalkyConsole} */
 const log = require('../util/console');
 
-const util = require('util');
-util.inspect.defaultOptions.colors = true;
-util.inspect.defaultOptions.depth = 5;
+const util									= require('util');
+util.inspect.defaultOptions.colors			= true;
+util.inspect.defaultOptions.depth			= 5;
 util.inspect.defaultOptions.breakLength = 100;
 
 // Temporary Usage
@@ -24,9 +24,9 @@ let _, __;
 
 const Logging = {
 	Patterns:		false,
-	SearchSummary:	true,
-	ScoringSummary: true,
-	ScoringDetail:	true,
+	SearchSummary:	false,
+	ScoringSummary: false,
+	ScoringDetail:	false,
 };
 
 const ScoreMatch			= 16;
@@ -83,6 +83,17 @@ const CC_ALNUM1	= 6;		// AlphaNumeric NUM + ALPHA = 6 (7 if uppercase)
 const CC_ALNUM2	= 7;		// AlphaNumeric NUM + ALPHA = 6 (7 if uppercase)
 const CC_BOUNDARY = 8;
 
+/**
+ * Creates, starts and returns a timer
+ * @param {string} name
+ * @return {Tick}
+ */
+function StartTimer(name) {
+	let timer = new Tick(name);
+	timer.start();
+	return timer;
+}
+
 module.exports = new class Regex1Algorithm {
 	constructor() {
 	}
@@ -93,6 +104,8 @@ module.exports = new class Regex1Algorithm {
 	 * @param {number} MaxMatches
 	 */
 	search(Data, Input, MaxMatches) {
+		let TotalTimer = StartTimer('Total');
+
 		let Inputs = Input.split(/\s+/);
 
 		let MetaData = /** @var {FzMatchMetaData} */ {
@@ -100,6 +113,7 @@ module.exports = new class Regex1Algorithm {
 			Data: Data,
 			data: Data.toLocaleLowerCase(),
 		};
+
 
 		/**
 		 * Looking over the source for fzf, looks like its much simpler than _v1 tried/failed to do.
@@ -135,11 +149,13 @@ module.exports = new class Regex1Algorithm {
 
 				// Matches = Matches.slice(0, 1);
 
+				let LineEndsIter = this.GetLineEndsIterater(LineEnds);
+
 				Matches
 				// .sort((l, r) => l.match.length - r.match.length)
 					.map((Match) => {
 						Match.InputIndex = InputIndex;
-						Match.ItemIndex		= LineEnds.findIndex((line) => Match.end <= line.end);
+						Match.ItemIndex = LineEndsIter.next(Match.end).value;
 						return Match;
 					})
 					.map((Match) => this.Score(Match, MetaData))
@@ -165,6 +181,7 @@ module.exports = new class Regex1Algorithm {
 						ItemIndex:		Match.ItemIndex,
 						InputMatches: [],
 					};
+
 					ItemMatch.InputMatches[Match.InputIndex] = ItemMatch.InputMatches[Match.InputIndex] || [];
 					ItemMatch.InputMatches[Match.InputIndex].push(Match);
 					acc[Match.ItemIndex] = ItemMatch;
@@ -183,19 +200,13 @@ module.exports = new class Regex1Algorithm {
 			.sort((a, b) => {
 				return b.Score - a.Score;
 			});
-		// });
 
-		console.log(util.inspect(ItemScores));
-		console.log(Number.MAX_SAFE_INTEGER);
-		console.log(Number.MAX_VALUE);
+		// console.log(util.inspect(ItemScores));
 
-		if(Logging.SearchSummary)
-			log.info('{grey Total Lines:} %d', LineEnds.length);
+		// if(Logging.SearchSummary)
+		log.info('{grey Total Lines:} %d', LineEnds.length);
 
 		// log.info(LineEnds);
-
-		// if(t.timers && t.timers.fn)
-		// 	t.timers.fn.printResults();
 
 		// for(let part of Inputs) {
 		// 	log.info(part);
@@ -203,6 +214,34 @@ module.exports = new class Regex1Algorithm {
 
 //		log.info(`searching with ${Input}`);
 
+		if(TotalTimer)
+			TotalTimer.stop();
+
+		for(let name of Object.keys(t.timers)) {
+			let res = t.timers[name];
+			console.log('%s: %s', name, res.parse(res.duration()));
+		}
+	}
+
+	GetLineEndsIterater(LineEnds) {
+		function* LineEndsGenerator() {
+			let pos = yield;
+			let max = LineEnds.length;
+			for(let i = 0; i < max; i++) {
+
+				if(pos <= LineEnds[i].end) {
+					i--;	// Go back one in case next match is in the same item
+					pos = yield i + 1;
+				}
+			}
+		}
+
+		// Get a generator
+		let gen = LineEndsGenerator();
+		// Start the generator
+		gen.next();
+		// Return it, next call to gen.next(pos) will set value of ${let pos}
+		return gen;
 	}
 
 	/**
@@ -318,11 +357,7 @@ module.exports = new class Regex1Algorithm {
 		Match.Points = Points;
 		Match.Scores = Scores;
 
-		Match.Score =
-			Math.round(
-				Object.values(Scores)
-					.reduce((acc, val) => acc + val, 0)
-			);
+		Match.Score = Math.round(Object.values(Scores).reduce((acc, val) => acc + val, 0));
 
 		if(Logging.ScoringSummary) {
 			log.section('Scored {bold.hex("#f0f") %4d} for Item %4d: "{red %s}%s{red %s}" (%d-%d) ',
