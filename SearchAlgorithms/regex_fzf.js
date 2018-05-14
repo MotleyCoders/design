@@ -66,10 +66,10 @@ const bonusFirstCharMultiplier = 2;
 
 const ScoreBase		= 16;
 const Scoring			= {};
-Scoring.Boundary		= ScoreBase / 3;
+Scoring.Boundary		= ScoreBase / 2;
 Scoring.Consecutive = ScoreBase / 2;
-Scoring.Capitals		= ScoreBase;
-Scoring.GapPenalty		= -ScoreBase / (ScoreBase);
+Scoring.Capitals		= ScoreBase / 2;
+Scoring.GapPenalty		= -ScoreBase / (ScoreBase / 2);
 
 // Flags to MatchAll
 const NO_BACKTRACK		= 1;	// Do not backtrack the lastIndex
@@ -124,6 +124,8 @@ module.exports = new class Regex1Algorithm {
 		/** Get all line ending matches */
 		let LineEnds = this.MatchAll('[\r\n]+', Data, NO_BACKTRACK);
 
+		MetaData.LineEnds = LineEnds;
+
 		let ItemScores = Inputs
 			.map((Input, InputIndex) => {
 				MetaData.INPUT = Input.toLocaleUpperCase();
@@ -155,7 +157,7 @@ module.exports = new class Regex1Algorithm {
 				// .sort((l, r) => l.match.length - r.match.length)
 					.map((Match) => {
 						Match.InputIndex = InputIndex;
-						Match.ItemIndex = LineEndsIter.next(Match.end).value;
+						Match.ItemIndex		= LineEndsIter.next(Match.end).value;
 						return Match;
 					})
 					.map((Match) => this.Score(Match, MetaData))
@@ -192,6 +194,9 @@ module.exports = new class Regex1Algorithm {
 			/** Sort Input Matches by Score and Calculate ItemMatch Score */
 			.map((ItemMatch) => {
 				for(let InputMatch of ItemMatch.InputMatches) {
+					if(!InputMatch)
+						continue;	// No matches for the given input index
+
 					InputMatch.sort((a, b) => b.Score - a.Score);
 					ItemMatch.Score = ItemMatch.Score * InputMatch[0].Score;
 				}
@@ -201,18 +206,15 @@ module.exports = new class Regex1Algorithm {
 				return b.Score - a.Score;
 			});
 
-		// console.log(util.inspect(ItemScores));
 
-		// if(Logging.SearchSummary)
+		log.info('\n{grey Score / Boundary / Consecutive / Capitals / GapPenalty}\n');
+
+		for(let ItemScore of ItemScores) {
+			this.DisplayItemAsLine(ItemScore, MetaData);
+		}
+
+
 		log.info('{grey Total Lines:} %d', LineEnds.length);
-
-		// log.info(LineEnds);
-
-		// for(let part of Inputs) {
-		// 	log.info(part);
-		// }
-
-//		log.info(`searching with ${Input}`);
 
 		if(TotalTimer)
 			TotalTimer.stop();
@@ -221,6 +223,43 @@ module.exports = new class Regex1Algorithm {
 			let res = t.timers[name];
 			console.log('%s: %s', name, res.parse(res.duration()));
 		}
+	}
+
+	/**
+	 * Displays a single item score marked up with match information
+	 * @param {object} ItemScore
+	 * @param {FzMatchMetaData} MetaData
+	 * @param {object} Options
+	 */
+	DisplayItemAsLine(ItemScore, MetaData, Options = {}) {
+		let Item = {
+			Start: ItemScore.ItemIndex > 0 ? MetaData.LineEnds[ItemScore.ItemIndex - 1].end + 1 : 0,
+			End:	MetaData.LineEnds[ItemScore.ItemIndex].start,
+		};
+		log.info('{white.underline %7d: %s}', ItemScore.Score, MetaData.Data.substring(Item.Start, Item.End));
+
+		// console.log(ItemScore);
+		let TopMatches = ItemScore.InputMatches
+			.reduce((acc, cur) => {
+				acc.push(cur[0]);
+				return acc;
+			}, []);
+
+		let Colors = [
+			'{green ',
+			'{white ',
+		];
+		for(let Match of TopMatches) {
+			let Colored = '{red ' + MetaData.Data.substr(Match.start - 1, 1) + '}' +
+							Match.tParts
+								.slice(1)
+								.reduce((acc, cur, idx) => {
+									return acc + Colors[idx % 2] + cur + '}';
+								}, '')
+							+ '{red ' + MetaData.Data.substr(Match.end, 1) + '}';
+			log.info('  %5d: %3d/%3d/%3d/%3d  %s', Match.Score, Match.Scores.Boundary, Match.Scores.Consecutive, Match.Scores.Capitals, Match.Scores.GapPenalty, Colored);
+		}
+		log.info('');
 	}
 
 	GetLineEndsIterater(LineEnds) {
@@ -357,7 +396,11 @@ module.exports = new class Regex1Algorithm {
 		Match.Points = Points;
 		Match.Scores = Scores;
 
-		Match.Score = Math.round(Object.values(Scores).reduce((acc, val) => acc + val, 0));
+		// Match Score is the sum of all scores or 1 if it adds up to 0
+		// 			(due to score multiplication for multiple matches)
+		Match.Score =
+			Math.max(1, Math.round(Object.values(Scores)
+					.reduce((acc, val) => acc + val, 0)));
 
 		if(Logging.ScoringSummary) {
 			log.section('Scored {bold.hex("#f0f") %4d} for Item %4d: "{red %s}%s{red %s}" (%d-%d) ',
